@@ -265,7 +265,11 @@ function buildNavCross() {
   nav.innerHTML = D.cross.map((q,i) =>
     `<button data-i="${i}" class="${i===curCross?"on":""}"><span class="qc">${esc(q.qid)}</span>${esc(q.title)}</button>`
   ).join("");
-  nav.querySelectorAll("button").forEach(b => b.onclick = () => { curCross=+b.dataset.i; curAxes=[]; buildAxisSelect(); renderCross(); });
+  nav.querySelectorAll("button").forEach(b => b.onclick = () => {
+    curCross = +b.dataset.i; curAxes = [];
+    nav.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    buildAxisSelect(); renderCross();
+  });
 }
 
 function renderCross() {
