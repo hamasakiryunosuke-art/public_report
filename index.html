@@ -327,13 +327,24 @@ function renderSummary() {
   // 全設問ハイライト
   h += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:4px">`;
   D.single.forEach((q, i) => {
-    const top = q.counts.map((v,j)=>({v,j})).sort((a,b)=>b.v-a.v)[0];
-    const topLabel = top ? `${esc(q.categories[top.j])}：${fp(pct(top.v, q.base))}%` : "—";
+    const isMA = q.type === "MA";
+    // ミニ棒グラフ（上位5カテゴリ）
+    const sorted = q.counts.map((v,j)=>({v,j})).sort((a,b)=>b.v-a.v).slice(0,5);
+    const bars = sorted.map(({v,j}) => {
+      const p = pct(v, q.base);
+      return `<div style="display:grid;grid-template-columns:1fr 80px 40px;align-items:center;gap:6px;margin-bottom:4px">
+        <div style="font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(q.categories[j])}">${esc(q.categories[j])}</div>
+        <div style="background:#eee;border-radius:3px;height:10px"><div style="width:${p}%;background:${catColor(q.categories[j],j)};height:100%;border-radius:3px"></div></div>
+        <div style="font-size:11px;font-weight:700;color:var(--indigo);text-align:right">${fp(p)}%</div>
+      </div>`;
+    }).join("");
     h += `<div class="card" style="cursor:pointer" onclick="switchTab('single');curSingle=${i};buildNavSingle();renderSingle();">
-      <div style="font-size:10px;color:var(--coral);font-weight:700;margin-bottom:4px">${esc(q.qid)}</div>
-      <div style="font-size:13px;font-weight:700;margin-bottom:8px;line-height:1.4">${esc(q.title)}</div>
-      <div style="font-size:12px;color:var(--teal)">▲ ${topLabel}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">N=${q.base}</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+        <div style="font-size:10px;color:var(--coral);font-weight:700">${esc(q.qid)}</div>
+        <div style="font-size:10px;color:var(--muted)">N=${q.base}</div>
+      </div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:10px;line-height:1.4">${esc(q.title)}</div>
+      ${bars}
     </div>`;
   });
   h += `</div>`;
