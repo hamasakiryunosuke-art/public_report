@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>アンケート集計結果</title>
+<style>
+:root {
+  --indigo: #2d3a8c; --coral: #e8613c; --teal: #3f9e8c;
+  --bg: #f5f6fa; --card: #fff; --border: #e2e5ef;
+  --muted: #888; --text: #1a1a2e; --radius: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: "Noto Sans JP", "Hiragino Sans", sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+
+/* ===== ヘッダ ===== */
+.top { background: var(--indigo); color: #fff; padding: 20px 32px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.top h1 { font-size: 18px; font-weight: 700; }
+.top .sub { font-size: 12px; opacity: .7; margin-top: 2px; }
+.top .eyebrow { font-size: 10px; letter-spacing: .12em; opacity: .6; text-transform: uppercase; }
+
+/* ===== タブ ===== */
+.wrap { max-width: 1100px; margin: 0 auto; padding: 0 16px 40px; }
+.tabs { display: flex; gap: 4px; padding: 16px 0 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+.tabs button { background: none; border: none; padding: 8px 20px; font-size: 13px; cursor: pointer; border-radius: 6px 6px 0 0; color: var(--muted); font-weight: 600; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+.tabs button.on { color: var(--indigo); border-bottom-color: var(--indigo); background: #eef0fa; }
+
+/* ===== パネル ===== */
+.panel { display: none; } .panel.on { display: block; }
+
+/* ===== カード ===== */
+.card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 20px; margin-bottom: 16px; }
+.card h3 { font-size: 13px; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .06em; }
+
+/* ===== サマリ ===== */
+.statbar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.statbar .cell { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 24px; flex: 1; min-width: 140px; }
+.statbar .k { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.statbar .v { font-size: 26px; font-weight: 700; color: var(--indigo); }
+.insight { background: #f0f4ff; border-left: 4px solid var(--indigo); border-radius: 0 8px 8px 0; padding: 14px 16px; margin-bottom: 16px; }
+.insight h4 { font-size: 12px; color: var(--indigo); margin-bottom: 8px; }
+.insight ul { padding-left: 16px; }
+.insight li { font-size: 13px; line-height: 1.7; color: #333; }
+
+/* ===== 単純集計レイアウト ===== */
+.layout { display: grid; grid-template-columns: 220px 1fr; gap: 0; }
+.qlist { border-right: 1px solid var(--border); padding-right: 0; overflow-y: auto; max-height: 75vh; position: sticky; top: 0; }
+.qlist button { display: block; width: 100%; text-align: left; padding: 8px 12px; font-size: 12px; border: none; background: none; cursor: pointer; border-bottom: 1px solid var(--border); line-height: 1.4; color: var(--text); }
+.qlist button:hover { background: #f0f4ff; }
+.qlist button.on { background: #eef0fa; color: var(--indigo); font-weight: 700; border-right: 3px solid var(--indigo); }
+.qlist .qc { display: block; font-size: 10px; color: var(--coral); font-weight: 700; margin-bottom: 2px; }
+.main { padding: 0 0 0 20px; }
+.qhead { margin-bottom: 14px; }
+.badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 4px; background: #dde2f7; color: var(--indigo); font-weight: 700; margin-bottom: 6px; }
+.badge.ma { background: #fde8e0; color: var(--coral); }
+.qtitle { font-size: 15px; font-weight: 700; line-height: 1.5; }
+.qtext { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+/* ===== グラフ ===== */
+.barwrap { margin-top: 8px; }
+.barrow { display: grid; grid-template-columns: 160px 1fr 56px; align-items: center; gap: 8px; margin-bottom: 6px; }
+.nm { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track { background: #eee; border-radius: 4px; height: 14px; }
+.fill { height: 100%; border-radius: 4px; background: var(--indigo); transition: width .3s; }
+.pc { font-size: 12px; font-weight: 700; color: var(--indigo); text-align: right; }
+.pielegend { display: flex; flex-direction: column; gap: 5px; }
+.pielegend div { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.pielegend i { width: 13px; height: 13px; border-radius: 3px; display: inline-block; flex: none; }
+
+/* ===== 集計表 ===== */
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: center; }
+th { background: #f0f4ff; font-weight: 700; color: var(--indigo); }
+.lab { text-align: left; }
+.tot { font-weight: 700; background: #fafbff; }
+tr.pct td { color: var(--teal); }
+
+/* ===== クロス集計 ===== */
+.axis-select { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.axis-select button { padding: 5px 14px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); font-size: 12px; cursor: pointer; }
+.axis-select button.on { background: var(--indigo); color: #fff; border-color: var(--indigo); }
+.cross-qhead { font-size: 13px; font-weight: 700; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+/* ===== FA ===== */
+.fa-controls { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.fa-search { flex: 1; padding: 7px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+.facount { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.fa-list { max-height: 500px; overflow-y: auto; }
+.fa-item { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; line-height: 1.6; }
+.fa-item:hover { background: #f8f9ff; }
+.fa-item mark { background: #fff3a8; border-radius: 2px; }
+
+/* ===== ローダー ===== */
+#loader { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; color: var(--muted); }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--indigo); border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+#error-msg { display: none; text-align: center; padding: 60px 20px; color: var(--coral); }
+
+@media (max-width: 640px) {
+  .layout { grid-template-columns: 1fr; }
+  .qlist { max-height: 200px; border-right: none; border-bottom: 1px solid var(--border); }
+  .main { padding: 16px 0 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <div class="eyebrow">SURVEY ANALYTICS</div>
+    <h1 id="pageTitle">アンケート集計結果</h1>
+    <div class="sub" id="pageSub">読み込み中…</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="loader"><div class="spinner"></div>データを読み込んでいます…</div>
+  <div id="error-msg">result.json の読み込みに失敗しました。<br>ファイルが正しく配置されているか確認してください。</div>
+
+  <div id="app" style="display:none">
+    <div class="tabs">
+      <button data-tab="summary" class="on">サマリ</button>
+      <button data-tab="single">単純集計</button>
+      <button data-tab="cross">クロス集計</button>
+      <button data-tab="fa">FA集計</button>
+    </div>
+
+    <!-- サマリ -->
+    <div class="panel on" id="panel-summary"></div>
+
+    <!-- 単純集計 -->
+    <div class="panel" id="panel-single">
+      <div class="layout">
+        <nav class="qlist" id="navSingle"></nav>
+        <div class="main" id="mainSingle"></div>
+      </div>
+    </div>
+
+    <!-- クロス集計 -->
+    <div class="panel" id="panel-cross">
+      <div class="card">
+        <h3>クロス集計の軸（表側）</h3>
+        <div class="axis-select" id="axisSelect"></div>
+      </div>
+      <div class="layout">
+        <nav class="qlist" id="navCross"></nav>
+        <div class="main" id="mainCross"></div>
+      </div>
+    </div>
+
+    <!-- FA集計 -->
+    <div class="panel" id="panel-fa">
+      <div class="fa-controls">
+        <input class="fa-search" id="faSearch" placeholder="自由回答を検索（キーワード）">
+        <span class="facount" id="faCount"></span>
+      </div>
+      <div class="layout">
+        <nav class="qlist" id="navFA"></nav>
+        <div class="main" id="mainFA"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== データ =====
+const DATA_URL = "result.json";
+let D = null;            // ロード済みJSON
+let curSingle = 0, curCross = 0, curFA = 0;
+let curAxes = [];        // 選択中のクロス軸qidリスト
+
+const PALETTE = ["#2d3a8c","#e8613c","#3f9e8c","#9a7b3a","#7a6fc0","#4a8d5e","#cf7d3c","#b3477f","#4a8aab","#6b6b6b"];
+const SCALE_COLORS = {"満足":"#2d3a8c","やや満足":"#7b8fd4","どちらともいえない":"#aaa","やや不満":"#f5a07a","不満":"#e8613c","大変満足":"#1a2870","大変不満":"#c0392b"};
+
+function catColor(c, i) { return SCALE_COLORS[c] || PALETTE[i % PALETTE.length]; }
+function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function pct(v, b) { return b ? (v / b * 100) : 0; }
+function fp(v) { return v.toFixed(1); }
+
+// ===== タブ =====
+function switchTab(t) {
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  ["summary","single","cross","fa"].forEach(p => document.getElementById("panel-"+p).classList.toggle("on", p === t));
+}
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+
+// ===== 単純集計 =====
+function buildNavSingle() {
+  const nav = document.getElementById("navSingle");
+  nav.innerHTML = D.single.map((q, i) =>
+    `<button data-i="${i}" class="${i===curSingle?"on":""}"><span class="qc">${esc(q.qid)}</span>${esc(q.title)}</button>`
+  ).join("");
+  nav.querySelectorAll("button").forEach(b => b.onclick = () => { curSingle = +b.dataset.i; renderSingle(); });
+}
+
+function pieSVG(cats, counts, base) {
+  const W = 200, cx = W/2, cy = W/2, r = 90;
+  let start = -Math.PI/2, paths = "", labels = "";
+  const total = counts.reduce((a,b)=>a+b,0);
+  cats.forEach((c, i) => {
+    if (!counts[i]) return;
+    const frac = counts[i] / total;
+    const end = start + frac * 2 * Math.PI;
+    const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start);
+    const x2 = cx + r * Math.cos(end),   y2 = cy + r * Math.sin(end);
+    const large = frac > 0.5 ? 1 : 0;
+    paths += `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${large} 1 ${x2},${y2} Z" fill="${catColor(c,i)}" stroke="#fff" stroke-width="1.5"><title>${esc(c)}：${counts[i]}件 (${fp(pct(counts[i],base))}%)</title></path>`;
+    if (frac > 0.07) {
+      const mx = cx + r * 0.65 * Math.cos((start+end)/2);
+      const my = cy + r * 0.65 * Math.sin((start+end)/2);
+      labels += `<text x="${fp(mx)}" y="${fp(my)}" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="700" fill="#fff">${fp(pct(counts[i],base))}%</text>`;
+    }
+    start = end;
+  });
+  return `<svg viewBox="0 0 ${W} ${W}" width="${W}" height="${W}" style="flex:none">${paths}${labels}</svg>`;
+}
+
+function renderSingle() {
+  const q = D.single[curSingle];
+  document.querySelectorAll("#navSingle button").forEach(b => b.classList.toggle("on", +b.dataset.i === curSingle));
+  const isMA = q.type === "MA";
+  let h = `<div class="qhead">
+    <span class="badge ${isMA?"ma":""}">${isMA?"複数回答 MA":"単一回答 SA"}</span>
+    <div class="qtitle">${esc(q.title)}</div>
+    ${q.question && q.question !== q.title ? `<p class="qtext">${esc(q.question)}</p>` : ""}
+  </div>`;
+  h += `<div class="insight"><h4>分析コメント</h4>${esc(q.comment)}</div>`;
+  h += `<div class="card"><h3>グラフ</h3>`;
+  if (!isMA) {
+    h += `<div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;justify-content:center">`;
+    h += pieSVG(q.categories, q.counts, q.base);
+    h += `<div class="pielegend">` + q.categories.map((c,i) =>
+      `<div><i style="background:${catColor(c,i)}"></i><span>${esc(c)}</span><strong style="color:var(--indigo);margin-left:6px">${fp(pct(q.counts[i],q.base))}%</strong> <span style="color:var(--muted);font-size:11px">(${q.counts[i]})</span></div>`
+    ).join("") + `</div></div>`;
+  } else {
+    h += `<div class="barwrap">` + q.categories.map((c,i) => {
+      const p = pct(q.counts[i], q.base);
+      return `<div class="barrow"><div class="nm" title="${esc(c)}">${esc(c)}</div><div class="track"><div class="fill" style="width:${p}%;background:${catColor(c,i)}"></div></div><div class="pc">${fp(p)}%</div></div>`;
+    }).join("") + `</div>`;
+  }
+  h += `</div>`;
+  // 集計表
+  const r1 = `<tr><th class="lab">区分</th>${q.categories.map(c=>`<th>${esc(c)}</th>`).join("")}<th>回答者数</th></tr>`;
+  const r2 = `<tr><td class="lab">件数</td>${q.counts.map(v=>`<td>${v}</td>`).join("")}<td class="tot">${q.base}</td></tr>`;
+  let sp = 0;
+  const r3 = `<tr class="pct"><td class="lab">${isMA?"％(回答者比)":"構成比％"}</td>${q.counts.map(v=>{const p=pct(v,q.base);sp+=p;return`<td>${fp(p)}%</td>`;}).join("")}<td class="tot">${isMA?"－":fp(sp)+"%"}</td></tr>`;
+  h += `<div class="card"><h3>集計表</h3><table><tbody>${r1}${r2}${r3}</tbody></table></div>`;
+  document.getElementById("mainSingle").innerHTML = h;
+}
+
+// ===== クロス集計 =====
+function buildAxisSelect() {
+  const el = document.getElementById("axisSelect");
+  const cands = D.cross[curCross].axes;
+  el.innerHTML = cands.map((ax,i) =>
+    `<button data-i="${i}" class="${curAxes.includes(ax.axQid)?"on":""}">${esc(ax.axTitle)}</button>`
+  ).join("") || "<span style='color:var(--muted);font-size:12px'>利用可能な軸がありません</span>";
+  el.querySelectorAll("button").forEach(b => b.onclick = () => {
+    const qid = cands[+b.dataset.i].axQid;
+    curAxes = curAxes.includes(qid) ? curAxes.filter(x=>x!==qid) : [...curAxes, qid];
+    buildAxisSelect(); renderCross();
+  });
+}
+
+function buildNavCross() {
+  const nav = document.getElementById("navCross");
+  nav.innerHTML = D.cross.map((q,i) =>
+    `<button data-i="${i}" class="${i===curCross?"on":""}"><span class="qc">${esc(q.qid)}</span>${esc(q.title)}</button>`
+  ).join("");
+  nav.querySelectorAll("button").forEach(b => b.onclick = () => { curCross=+b.dataset.i; curAxes=[]; buildAxisSelect(); renderCross(); });
+}
+
+function renderCross() {
+  const q = D.cross[curCross];
+  let h = `<div class="cross-qhead">${esc(q.title)}</div>`;
+  if (!curAxes.length) { document.getElementById("mainCross").innerHTML = h + `<p style="color:var(--muted);font-size:13px">上の軸ボタンを選択してください。</p>`; return; }
+  curAxes.forEach(axQid => {
+    const ax = q.axes.find(a => a.axQid === axQid);
+    if (!ax) return;
+    h += `<div class="card"><h3>${esc(ax.axTitle)}</h3>`;
+    h += `<table><tbody><tr><th class="lab">軸 \\ 設問</th>${q.categories.map(c=>`<th>${esc(c)}</th>`).join("")}<th>計</th></tr>`;
+    ax.acats.forEach((acat, ri) => {
+      const row = ax.grid[ri], tot = ax.rowtot[ri];
+      h += `<tr><td class="lab">${esc(acat)}</td>${row.map(v=>`<td>${v}<br><span style="color:var(--teal);font-size:10px">${fp(pct(v,tot))}%</span></td>`).join("")}<td class="tot">${tot}</td></tr>`;
+    });
+    h += `</tbody></table></div>`;
+  });
+  document.getElementById("mainCross").innerHTML = h;
+}
+
+// ===== FA集計 =====
+function buildNavFA() {
+  const nav = document.getElementById("navFA");
+  nav.innerHTML = D.fa.map((q,i) =>
+    `<button data-i="${i}" class="${i===curFA?"on":""}"><span class="qc">${esc(q.qid)}</span>${esc(q.title)}</button>`
+  ).join("") || "<p style='padding:12px;font-size:12px;color:var(--muted)'>FA設問がありません</p>";
+  nav.querySelectorAll("button").forEach(b => b.onclick = () => { curFA=+b.dataset.i; renderFA(); });
+}
+
+function renderFA() {
+  if (!D.fa.length) { document.getElementById("mainFA").innerHTML = "<p style='color:var(--muted);padding:16px'>自由回答設問がありません。</p>"; return; }
+  const q = D.fa[curFA];
+  const kw = document.getElementById("faSearch").value.trim().toLowerCase();
+  const filtered = kw ? q.answers.filter(a => a.toLowerCase().includes(kw)) : q.answers;
+  document.getElementById("faCount").textContent = `${filtered.length} / ${q.answers.length} 件`;
+  document.querySelectorAll("#navFA button").forEach(b => b.classList.toggle("on", +b.dataset.i === curFA));
+  const items = filtered.map(a => {
+    const escaped = esc(a);
+    const highlighted = kw ? escaped.replace(new RegExp(esc(kw).replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),"gi"), m => `<mark>${m}</mark>`) : escaped;
+    return `<div class="fa-item">${highlighted}</div>`;
+  }).join("");
+  document.getElementById("mainFA").innerHTML = `<div class="fa-list">${items || "<p style='color:var(--muted);padding:16px'>該当する回答がありません</p>"}</div>`;
+}
+document.getElementById("faSearch").addEventListener("input", renderFA);
+
+// ===== サマリ =====
+function renderSummary() {
+  const s = D.summary;
+  let h = `<div class="statbar">
+    <div class="cell"><div class="k">有効回答数 (N)</div><div class="v">${s.N.toLocaleString()}</div></div>
+    <div class="cell"><div class="k">設問数</div><div class="v">${s.questionCount}</div></div>
+    ${s.period ? `<div class="cell"><div class="k">回収期間</div><div class="v" style="font-size:16px">${esc(s.period)}</div></div>` : ""}
+  </div>`;
+  if (s.insights && s.insights.length) {
+    h += `<div class="insight"><h4>集計結果から見える傾向</h4><ul>${s.insights.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></div>`;
+  }
+  // 全設問ハイライト
+  h += `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:4px">`;
+  D.single.forEach((q, i) => {
+    const top = q.counts.map((v,j)=>({v,j})).sort((a,b)=>b.v-a.v)[0];
+    const topLabel = top ? `${esc(q.categories[top.j])}：${fp(pct(top.v, q.base))}%` : "—";
+    h += `<div class="card" style="cursor:pointer" onclick="switchTab('single');curSingle=${i};buildNavSingle();renderSingle();">
+      <div style="font-size:10px;color:var(--coral);font-weight:700;margin-bottom:4px">${esc(q.qid)}</div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px;line-height:1.4">${esc(q.title)}</div>
+      <div style="font-size:12px;color:var(--teal)">▲ ${topLabel}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">N=${q.base}</div>
+    </div>`;
+  });
+  h += `</div>`;
+  document.getElementById("panel-summary").innerHTML = h;
+}
+
+// ===== データロード =====
+fetch(DATA_URL)
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(data => {
+    D = data;
+    document.getElementById("loader").style.display = "none";
+    document.getElementById("app").style.display = "";
+    document.getElementById("pageSub").textContent = `有効回答数 ${D.summary.N.toLocaleString()}件 ／ ${D.summary.questionCount}設問${D.summary.period ? " ／ "+D.summary.period : ""}`;
+
+    // 初期軸設定
+    if (D.cross.length && D.cross[0].axes.length) {
+      curAxes = [D.cross[0].axes[0].axQid];
+    }
+
+    renderSummary();
+    buildNavSingle(); renderSingle();
+    buildNavCross(); buildAxisSelect(); renderCross();
+    buildNavFA(); renderFA();
+    switchTab("summary");
+  })
+  .catch(e => {
+    document.getElementById("loader").style.display = "none";
+    document.getElementById("error-msg").style.display = "block";
+    console.error("result.json 読み込みエラー:", e);
+  });
+</script>
+</body>
+</html>
